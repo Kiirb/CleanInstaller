@@ -87,11 +87,12 @@ func (c *Client) get(ctx context.Context, path string, out any) error {
 	return json.NewDecoder(resp.Body).Decode(out)
 }
 
-// MatchAsset returns the single asset whose name contains pattern.
+// MatchAsset returns the single asset whose name contains pattern
+// (case-insensitive).
 func MatchAsset(r *Release, pattern string) (ReleaseAsset, error) {
 	var found []ReleaseAsset
 	for _, a := range r.Assets {
-		if strings.Contains(a.Name, pattern) {
+		if strings.Contains(strings.ToLower(a.Name), strings.ToLower(pattern)) {
 			found = append(found, a)
 		}
 	}

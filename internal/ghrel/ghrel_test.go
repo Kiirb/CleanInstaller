@@ -77,3 +77,10 @@ func TestMatchAssetExactlyOne(t *testing.T) {
 		t.Fatal("no match accepted")
 	}
 }
+
+func TestMatchAssetCaseInsensitive(t *testing.T) {
+	r := &Release{Assets: []ReleaseAsset{{Name: "TouMira.v1.7.9-x64-Steam-Epic-MsStore.zip"}, {Name: "TouMira.v1.7.9-x86-ItchIo.zip"}, {Name: "TownOfUsMira.dll"}}}
+	if a, err := MatchAsset(r, "steam"); err != nil || a.Name != "TouMira.v1.7.9-x64-Steam-Epic-MsStore.zip" {
+		t.Fatalf("%v %+v", err, a)
+	}
+}

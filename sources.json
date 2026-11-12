@@ -1,0 +1,55 @@
+{
+  "modpack": {
+    "id": "TOU-Mira-Pack",
+    "repo": "AU-Avengers/TOU-Mira",
+    "assetPattern": "steam"
+  },
+  "launcher": {
+    "id": "CleanInstaller",
+    "repo": "Kiirb/CleanInstaller",
+    "assetPattern": ".exe"
+  },
+  "plugins": [
+    {
+      "id": "TownOfUsMira",
+      "repo": "AU-Avengers/TOU-Mira",
+      "assetPattern": "TownOfUsMira.dll"
+    },
+    {
+      "id": "Reactor",
+      "repo": "NuclearPowered/Reactor",
+      "assetPattern": ".dll"
+    },
+    {
+      "id": "Mini.RegionInstall",
+      "repo": "miniduikboot/Mini.RegionInstall",
+      "assetPattern": ".dll"
+    },
+    {
+      "id": "TownOfUsMiraRolesExtension",
+      "repo": "rewalo/TownOfUsMiraRolesExtension",
+      "assetPattern": ".dll"
+    },
+    {
+      "id": "ModExplorer",
+      "repo": "xChipseq/ModExplorer",
+      "assetPattern": ".dll"
+    },
+    {
+      "id": "AUnlocker",
+      "repo": "astra1dev/AUnlocker",
+      "assetPattern": ".dll"
+    },
+    {
+      "id": "TownOfUsMiraDivaniModsAddOn",
+      "repo": "DivaniNL/TownOfUsMiraDivaniModsAddOn",
+      "assetPattern": ".dll"
+    },
+    {
+      "id": "Perfect-Comms",
+      "repo": "artriy/Perfect-Comms",
+      "assetPattern": "PerfectComms.dll"
+    }
+  ],
+  "remove": []
+}

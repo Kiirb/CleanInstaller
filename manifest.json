@@ -1,0 +1,93 @@
+{
+  "schema": 1,
+  "generatedAt": "2026-11-12T14:50:28.9071888Z",
+  "launcher": {
+    "url": "",
+    "sha256": "",
+    "size": 0
+  },
+  "modpack": {
+    "tag": "1.7.9-beta1",
+    "fileName": "TouMira.v1.7.9-beta1-x64-Steam-Epic-MsStore.zip",
+    "url": "https://github.com/AU-Avengers/TOU-Mira/releases/download/1.7.9-beta1/TouMira.v1.7.9-beta1-x64-Steam-Epic-MsStore.zip",
+    "sha256": "b2e2163f7d0f41fb3cdf50352119925c42c80bc55a804507cf9e923aeb150afd",
+    "size": 97657502
+  },
+  "plugins": [
+    {
+      "tag": "1.7.9-beta1",
+      "fileName": "TownOfUsMira.dll",
+      "id": "TownOfUsMira",
+      "url": "https://github.com/AU-Avengers/TOU-Mira/releases/download/1.7.9-beta1/TownOfUsMira.dll",
+      "sha256": "87e1881010828ff81ddc0c054857da5ebddeb2ce1472e60d3e6891c5b0b8bff5",
+      "size": 41605120
+    },
+    {
+      "tag": "2.5.1",
+      "fileName": "Reactor.dll",
+      "id": "Reactor",
+      "url": "https://github.com/NuclearPowered/Reactor/releases/download/2.5.1/Reactor.dll",
+      "sha256": "403f6c506e7ad0872b3b6833731066272553f20eb037d7db8962a406a5271e5e",
+      "size": 169984
+    },
+    {
+      "tag": "v1.2.0",
+      "fileName": "Mini.RegionInstall.dll",
+      "id": "Mini.RegionInstall",
+      "url": "https://github.com/miniduikboot/Mini.RegionInstall/releases/download/v1.2.0/Mini.RegionInstall.dll",
+      "sha256": "9015448b849cbe5edf71a62d77b32e16786e4515919751c2078062046f7de98b",
+      "size": 41985
+    },
+    {
+      "tag": "v2.0.2",
+      "fileName": "MiraUnleashed.dll",
+      "id": "TownOfUsMiraRolesExtension",
+      "url": "https://github.com/rewalo/TownOfUsMiraUnleashed/releases/download/v2.0.2/MiraUnleashed.dll",
+      "sha256": "b14d97ea513b90a510aea53eec686c830075b19207782cb4bd54e5c6d0840684",
+      "size": 6868480
+    },
+    {
+      "tag": "1.0.0",
+      "fileName": "ModExplorer.dll",
+      "id": "ModExplorer",
+      "url": "https://github.com/xChipseq/ModExplorer/releases/download/1.0.0/ModExplorer.dll",
+      "sha256": "856bede61641d9c0063485ba0d40dcf83e6d1ec70c80a442a5d21925271ab10a",
+      "size": 799232
+    },
+    {
+      "tag": "v1.3.2",
+      "fileName": "AUnlocker_v1.3.2.dll",
+      "id": "AUnlocker",
+      "url": "https://github.com/AstralKitsune/AUnlocker/releases/download/v1.3.2/AUnlocker_v1.3.2.dll",
+      "sha256": "714707896f01261461e31ea3ef9ba92f0c48294fc0a2b735fd60a0ff2204d204",
+      "size": 44544
+    },
+    {
+      "tag": "v1.4.1",
+      "fileName": "DivaniMods.dll",
+      "id": "TownOfUsMiraDivaniModsAddOn",
+      "url": "https://github.com/DivaniNL/TownOfUsMiraDivaniModsAddOn/releases/download/v1.4.1/DivaniMods.dll",
+      "sha256": "9e77711a788869225a4f71467786017abd0ca9debec346b1b1c9767de61c0b5d",
+      "size": 21070336
+    },
+    {
+      "tag": "v4.1.12",
+      "fileName": "PerfectComms.dll",
+      "id": "Perfect-Comms",
+      "url": "https://github.com/artriy/Perfect-Comms/releases/download/v4.1.12/PerfectComms.dll",
+      "sha256": "4aa34cb8625ea7f2c038e17cbc3a66a1bf4c216358ed8dd561ab43a23a9aae43",
+      "size": 52440576
+    }
+  ],
+  "remove": [],
+  "fun": {
+    "jokeText": false,
+    "chaosBar": false,
+    "jokeLines": [
+      "Kreditkarteninformationen abziehen",
+      "IP-Adresse leaken",
+      "Discord-Account-Token klauen",
+      "67 Passwörter an Server senden"
+    ]
+  }
+}

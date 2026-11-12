@@ -1,0 +1,56 @@
+name: Update manifest
+
+on:
+  schedule:
+    - cron: "0 */3 * * *"
+  push:
+    branches: [main]
+    paths: [sources.json]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: manifest
+  cancel-in-progress: false
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - name: Build manifestgen
+        run: go build -o /tmp/manifestgen ./cmd/manifestgen
+      - name: Resolve sources and push
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          git config user.name "manifest-bot"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          status=0
+          for attempt in 1 2 3; do
+            git fetch origin main && git reset --hard origin/main
+            set +e
+            /tmp/manifestgen -sources sources.json -manifest manifest.json > changes.txt
+            status=$?
+            set -e
+            if git diff --quiet manifest.json; then
+              echo "No manifest changes."
+              break
+            fi
+            git add manifest.json
+            git commit -m "manifest: update" -m "$(cat changes.txt)"
+            if git push origin HEAD:main; then
+              break
+            fi
+            echo "Push rejected (someone edited main), retrying ($attempt/3)..."
+          done
+          cat changes.txt
+          # Non-zero when a source failed; GitHub then emails the owner.
+          exit $status
