@@ -209,4 +209,3 @@ func parseBlock(l *lexer, parent *KV, top bool) error {
 		parent.Children = append(parent.Children, node)
 	}
 }
-
