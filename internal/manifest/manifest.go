@@ -144,11 +144,28 @@ func checkAsset(what string, a Asset) error {
 }
 
 func checkFileName(name string) error {
-	if name == "" || name == "." || name == ".." ||
-		strings.ContainsAny(name, `/\:`) {
+	if strings.ContainsAny(name, `/\:`) || !validElement(name) {
 		return fmt.Errorf("invalid file name %q", name)
 	}
 	return nil
+}
+
+// validElement rejects names Windows would silently rewrite or treat
+// specially: empty, ending in a dot or space (so "..." resolves to the parent
+// folder), and reserved device names like CON or NUL.
+func validElement(el string) bool {
+	if el == "" || strings.HasSuffix(el, ".") || strings.HasSuffix(el, " ") {
+		return false
+	}
+	base := strings.ToUpper(strings.SplitN(el, ".", 2)[0])
+	switch base {
+	case "CON", "PRN", "AUX", "NUL":
+		return false
+	}
+	if len(base) == 4 && (strings.HasPrefix(base, "COM") || strings.HasPrefix(base, "LPT")) && base[3] >= '0' && base[3] <= '9' {
+		return false
+	}
+	return true
 }
 
 // CheckRelPath accepts a forward-slash relative path with no empty, "." or
@@ -158,7 +175,7 @@ func CheckRelPath(p string) error {
 		return fmt.Errorf("invalid relative path")
 	}
 	for _, el := range strings.Split(p, "/") {
-		if el == "" || el == "." || el == ".." {
+		if !validElement(el) {
 			return fmt.Errorf("invalid path element %q", el)
 		}
 	}

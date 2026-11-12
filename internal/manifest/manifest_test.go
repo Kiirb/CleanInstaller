@@ -152,3 +152,20 @@ func TestParseSourcesDefaultsAndRepoFormat(t *testing.T) {
 		t.Fatal("accepted empty repo")
 	}
 }
+
+func TestValidateRejectsDotAndReservedElements(t *testing.T) { // final review I3
+	for _, bad := range []string{"...", "BepInEx/...", "BepInEx/. ", "BepInEx/.. ", "a./b", "BepInEx/CON", "nul.txt"} {
+		m := validManifest()
+		m.Remove = []string{bad}
+		if m.Validate() == nil {
+			t.Errorf("accepted remove %q", bad)
+		}
+	}
+	for _, bad := range []string{"...", "x.dll.", "x.dll ", "CON", "aux.dll"} {
+		m := validManifest()
+		m.Plugins[0].FileName = bad
+		if m.Validate() == nil {
+			t.Errorf("accepted fileName %q", bad)
+		}
+	}
+}

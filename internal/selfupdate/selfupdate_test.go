@@ -88,3 +88,23 @@ func TestCleanupOld(t *testing.T) {
 		t.Fatal("missing .old is an error")
 	}
 }
+
+func TestApplyCopyFailureKeepsSelfIntact(t *testing.T) { // final review minor 1
+	newExe := []byte("new-exe-bytes")
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { _, _ = w.Write(newExe) }))
+	defer srv.Close()
+	dir := t.TempDir()
+	self := filepath.Join(dir, "CleanInstaller.exe")
+	_ = os.WriteFile(self, []byte("old-exe"), 0o644)
+	// A directory where the staging file goes makes the copy fail.
+	_ = os.MkdirAll(self+".new", 0o755)
+	_ = os.WriteFile(filepath.Join(self+".new", "x"), []byte("x"), 0o644)
+	sum := sha256.Sum256(newExe)
+	a := manifest.Asset{Version: "2.0.0", URL: srv.URL, SHA256: hex.EncodeToString(sum[:]), Size: int64(len(newExe))}
+	if err := Apply(context.Background(), self, &download.Cache{Dir: filepath.Join(dir, "cache"), HTTP: srv.Client()}, a); err == nil {
+		t.Fatal("expected error")
+	}
+	if b, _ := os.ReadFile(self); string(b) != "old-exe" {
+		t.Fatalf("self %q", b)
+	}
+}

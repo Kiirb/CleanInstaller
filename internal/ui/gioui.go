@@ -58,13 +58,12 @@ type gioUI struct {
 	title string
 	open  func(path string) error
 
-	mu      sync.Mutex
-	w       *app.Window
-	cur     *screen
-	closing bool // set by Close: the program closed the window, keep running
-	closed  chan struct{}
-	once    sync.Once
-	tick    sync.Once
+	mu     sync.Mutex
+	w      *app.Window // the current window; nil after Close
+	cur    *screen
+	closed chan struct{}
+	once   sync.Once
+	tick   sync.Once
 }
 
 // Run creates the UI, runs body on a separate goroutine and blocks the main
@@ -104,13 +103,12 @@ func (u *gioUI) loop(w *app.Window) {
 		switch e := w.Event().(type) {
 		case app.DestroyEvent:
 			u.mu.Lock()
-			programClosed := u.closing
-			if programClosed {
-				u.w, u.cur, u.closing = nil, nil, false
-			}
+			current := u.w == w
 			u.mu.Unlock()
-			if programClosed {
-				return // e.g. the launcher hides its window while the game runs
+			if !current {
+				// Closed by the program (Close already forgot this window),
+				// e.g. the launcher hiding its window while the game runs.
+				return
 			}
 			u.once.Do(func() { close(u.closed) })
 			// The user closed the window: stop everything. The sync never
@@ -118,7 +116,7 @@ func (u *gioUI) loop(w *app.Window) {
 			os.Exit(0)
 		case app.FrameEvent:
 			gtx := app.NewContext(&ops, e)
-			u.layout(gtx, th)
+			u.layout(gtx, th, w)
 			e.Frame(gtx.Ops)
 		default:
 			handleViewEvent(e)
@@ -206,21 +204,24 @@ func (u *gioUI) Error(err error, logDir string) {
 }
 
 func (u *gioUI) Close() {
+	// Forget the window immediately, so a dialog shown right after Close gets
+	// a fresh window instead of the dying one.
 	u.mu.Lock()
 	w := u.w
-	if w != nil {
-		u.closing = true
-	}
+	u.w, u.cur = nil, nil
 	u.mu.Unlock()
 	if w != nil {
 		w.Perform(system.ActionClose)
 	}
 }
 
-func (u *gioUI) layout(gtx layout.Context, th *material.Theme) {
+func (u *gioUI) layout(gtx layout.Context, th *material.Theme, w *app.Window) {
 	paint.FillShape(gtx.Ops, bgColor, clip.Rect{Max: gtx.Constraints.Max}.Op())
 	u.mu.Lock()
 	s := u.cur
+	if u.w != w {
+		s = nil // a closing window never draws the next window's screen
+	}
 	u.mu.Unlock()
 	if s == nil {
 		return

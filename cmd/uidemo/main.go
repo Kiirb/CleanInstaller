@@ -51,7 +51,11 @@ func main() {
 			u.Progress("Erstes Fenster", t, ui.Display{})
 			time.Sleep(time.Second)
 			u.Close()
-			time.Sleep(2 * time.Second)
+			if mode == "reopen" && len(os.Args) > 2 {
+				// race check: show a dialog immediately after Close
+			} else {
+				time.Sleep(2 * time.Second)
+			}
 			u.Info("Zweites Fenster", "Prozess lebt noch nach Close().", "OK")
 		}
 		if mode == "all" || mode == "dialogs" {

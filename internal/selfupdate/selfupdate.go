@@ -43,13 +43,21 @@ func Apply(ctx context.Context, selfPath string, cache *download.Cache, a manife
 	if err != nil {
 		return err
 	}
+	// Stage the full new exe next to us first, so an interruption can never
+	// leave a truncated CleanInstaller.exe behind.
+	staged := selfPath + ".new"
+	if err := copyFile(src, staged); err != nil {
+		return err
+	}
 	old := selfPath + ".old"
 	_ = os.Remove(old) // a stale .old from an earlier crash; Rename below reports real problems
 	if err := os.Rename(selfPath, old); err != nil {
+		os.Remove(staged)
 		return err
 	}
-	if err := copyFile(src, selfPath); err != nil {
+	if err := os.Rename(staged, selfPath); err != nil {
 		_ = os.Rename(old, selfPath) // put the working exe back
+		os.Remove(staged)
 		return err
 	}
 	return nil

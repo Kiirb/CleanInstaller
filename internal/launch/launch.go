@@ -8,6 +8,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"sync"
 
 	"github.com/Kiirb/CleanInstaller/internal/apperr"
 	"github.com/Kiirb/CleanInstaller/internal/download"
@@ -41,21 +42,33 @@ func Run(ctx context.Context, d Deps, currentVersion string) error {
 	if err != nil || st == nil {
 		return notInstalled(errors.Join(errNotInstalled, err))
 	}
-	gameExe := filepath.Join(st.ModdedDir, steam.GameExe)
 
 	// Started again while playing: don't touch files in use, don't start twice.
-	if d.P.ProcessRunning(gameExe) {
+	if d.P.ProcessRunning(filepath.Join(st.ModdedDir, steam.GameExe)) {
 		d.Log.Info("modded game already running")
 		return nil
 	}
+	// Play pressed twice (or the installer is open): the other instance
+	// handles it, so exit quietly.
+	rel, ok := d.P.Lock()
+	if !ok {
+		d.Log.Info("another CleanInstaller instance is running")
+		return nil
+	}
+	var once sync.Once
+	release := func() { once.Do(rel) }
+	defer release()
 
-	if err := update(ctx, d, dataDir, st, currentVersion); err != nil {
-		if errors.Is(err, errRestarted) {
-			return nil
-		}
+	st, err = update(ctx, d, dataDir, st, currentVersion, release)
+	if errors.Is(err, errRestarted) {
+		return nil
+	}
+	if err != nil {
 		return err
 	}
 
+	// The folder may have moved during the sync (Steam library change).
+	gameExe := filepath.Join(st.ModdedDir, steam.GameExe)
 	if _, err := os.Stat(gameExe); err != nil {
 		return notInstalled(err)
 	}
@@ -75,13 +88,14 @@ func Run(ctx context.Context, d Deps, currentVersion string) error {
 
 var errRestarted = errors.New("restarted after self-update")
 
-// update fetches the manifest and brings everything up to date. Network
-// problems are logged and skipped so the game still starts offline.
-func update(ctx context.Context, d Deps, dataDir string, st *syncer.State, currentVersion string) error {
+// update fetches the manifest and brings everything up to date, returning the
+// state to launch from. Network problems are logged and skipped so the game
+// still starts offline. release frees the instance lock before a restart.
+func update(ctx context.Context, d Deps, dataDir string, st *syncer.State, currentVersion string, release func()) (*syncer.State, error) {
 	m, _, err := install.LoadManifest(ctx, d, dataDir)
 	if err != nil {
 		d.Log.Warn("no manifest, launching with what is installed", "err", err)
-		return nil
+		return st, nil
 	}
 	cache := &download.Cache{Dir: filepath.Join(dataDir, "cache"), HTTP: d.HTTP}
 
@@ -89,30 +103,33 @@ func update(ctx context.Context, d Deps, dataDir string, st *syncer.State, curre
 		d.Log.Info("self-update", "from", currentVersion, "to", m.Launcher.Version)
 		if err := selfupdate.Apply(ctx, d.SelfPath, cache, m.Launcher); err != nil {
 			d.Log.Warn("self-update failed, continuing with current version", "err", err)
-		} else if _, err := d.P.StartProcess(d.SelfPath, filepath.Dir(d.SelfPath), "--launch"); err != nil {
-			d.Log.Warn("restart after self-update failed", "err", err)
 		} else {
-			return errRestarted
+			release() // the new launcher must be able to take the lock
+			if _, err := d.P.StartProcess(d.SelfPath, filepath.Dir(d.SelfPath), "--launch"); err != nil {
+				d.Log.Warn("restart after self-update failed", "err", err)
+			} else {
+				return st, errRestarted
+			}
 		}
 	}
 
 	root, err := d.P.SteamRoot()
 	if err != nil {
 		d.Log.Warn("steam not found, skipping sync", "err", err)
-		return nil
+		return st, nil
 	}
 	g, err := steam.FindGame(root)
 	if err != nil {
 		d.Log.Warn("game not found, skipping sync", "err", err)
-		return nil
+		return st, nil
 	}
 	plan, err := syncer.MakePlan(st, g, m)
 	if err != nil {
 		d.Log.Warn("plan", "err", err)
-		return nil
+		return st, nil
 	}
 	if plan.Empty() {
-		return nil
+		return st, nil
 	}
 	d.Log.Info("sync", "rebuild", plan.Rebuild, "reason", plan.Reason, "fetch", len(plan.PluginsToFetch), "delete", len(plan.FilesToDelete))
 	tr := progress.NewTracker()
@@ -121,21 +138,21 @@ func update(ctx context.Context, d Deps, dataDir string, st *syncer.State, curre
 	newState, err := s.Apply(ctx, plan, g, m, dataDir)
 	tr.Finish()
 	if errors.Is(err, syncer.ErrModdedInUse) {
-		return apperr.New("Among Us Modded konnte nicht aktualisiert werden, weil Dateien noch benutzt werden. Schließe das Spiel und versuche es erneut.", err)
+		return nil, apperr.New("Among Us Modded konnte nicht aktualisiert werden, weil Dateien noch benutzt werden. Schließe das Spiel und versuche es erneut.", err)
 	}
 	if err != nil {
 		d.Log.Error("sync failed, launching with what is installed", "err", err)
-		return nil
+		return st, nil
 	}
 	if err := syncer.SaveState(dataDir, newState); err != nil {
 		d.Log.Error("save state", "err", err)
 	}
-	keep := []string{m.Modpack.SHA256, m.Launcher.SHA256}
+	keep := []string{m.Modpack.SHA256}
 	for _, p := range m.Plugins {
 		keep = append(keep, p.SHA256)
 	}
 	if err := cache.Prune(keep); err != nil {
 		d.Log.Warn("prune cache", "err", err)
 	}
-	return nil
+	return newState, nil
 }

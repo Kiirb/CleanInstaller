@@ -108,7 +108,7 @@ type Syncer struct {
 func (s *Syncer) Apply(ctx context.Context, p *Plan, g *steam.Game, m *manifest.Manifest, dataDir string) (*State, error) {
 	prev, _ := LoadState(dataDir)
 	if p.Rebuild {
-		return s.rebuild(ctx, p, g, m)
+		return s.rebuild(ctx, p, g, m, prev)
 	}
 	s.Tracker.Plan(100)
 	s.Tracker.Begin("Mods werden aktualisiert")
@@ -156,7 +156,14 @@ func (s *Syncer) fetchPlugins(ctx context.Context, list []manifest.Asset, dir st
 	return nil
 }
 
-func (s *Syncer) rebuild(ctx context.Context, p *Plan, g *steam.Game, m *manifest.Manifest) (*State, error) {
+func (s *Syncer) rebuild(ctx context.Context, p *Plan, g *steam.Game, m *manifest.Manifest, prev *State) (*State, error) {
+	// If Among Us moved to another Steam library, our previous folder is
+	// elsewhere: take the user's settings from there and remove it afterwards.
+	var movedFrom string
+	if prev != nil && prev.ModdedDir != "" && !strings.EqualFold(filepath.Clean(prev.ModdedDir), filepath.Clean(g.ModdedDir)) &&
+		strings.EqualFold(filepath.Base(prev.ModdedDir), steam.ModdedFolder) && exists(prev.ModdedDir) {
+		movedFrom = prev.ModdedDir
+	}
 	s.Log.Info("rebuild", "reason", p.Reason, "dir", g.ModdedDir)
 	s.Tracker.Plan(25, 40, 15, 20)
 
@@ -213,6 +220,9 @@ func (s *Syncer) rebuild(ctx context.Context, p *Plan, g *steam.Game, m *manifes
 
 	// 4. Keep the user's settings: their config files win over the pack's.
 	oldCfg := filepath.Join(g.ModdedDir, "BepInEx", "config")
+	if !exists(oldCfg) && movedFrom != "" {
+		oldCfg = filepath.Join(movedFrom, "BepInEx", "config")
+	}
 	if exists(oldCfg) {
 		if err := fsutil.CopyTree(oldCfg, filepath.Join(newDir, "BepInEx", "config"), nil, nil); err != nil {
 			return nil, fmt.Errorf("keep config: %w", err)
@@ -248,6 +258,12 @@ func (s *Syncer) rebuild(ctx context.Context, p *Plan, g *steam.Game, m *manifes
 	ok = true
 	if err := os.RemoveAll(oldDir); err != nil {
 		s.Log.Warn("could not delete old folder", "dir", oldDir, "err", err)
+	}
+	if movedFrom != "" {
+		s.Log.Info("removing modded folder from previous library", "dir", movedFrom)
+		if err := os.RemoveAll(movedFrom); err != nil {
+			s.Log.Warn("could not delete previous modded folder", "dir", movedFrom, "err", err)
+		}
 	}
 	s.Tracker.Set(1)
 	return &State{BuildID: g.BuildID, ModpackSHA: m.Modpack.SHA256, ModdedDir: g.ModdedDir,

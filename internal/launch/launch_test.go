@@ -138,3 +138,52 @@ func TestLaunchGameUpdateRebuilds(t *testing.T) {
 		t.Fatalf("game %q", b)
 	}
 }
+
+func TestLaunchSecondInstanceQuiet(t *testing.T) { // final review I2
+	w := installed(t)
+	w.Fake.LockHeld = true
+	if err := run(w, "1.0.0"); err != nil {
+		t.Fatal(err)
+	}
+	if len(w.Fake.Started) != 0 {
+		t.Fatal("second launcher started the game")
+	}
+}
+
+func TestLaunchSelfUpdateReleasesLockBeforeRestart(t *testing.T) {
+	w := installed(t)
+	w.Files["/CleanInstaller.exe"] = []byte("self-exe-v2")
+	w.Manifest.Launcher = w.Asset("/CleanInstaller.exe", "CleanInstaller.exe", "")
+	w.Manifest.Launcher.Version = "2.0.0"
+	w.Fake.CheckLockOnStart = true
+	if err := run(w, "1.0.0"); err != nil {
+		t.Fatal(err)
+	}
+	if w.Fake.StartedWhileLocked {
+		t.Fatal("restarted while still holding the lock: the new launcher would exit")
+	}
+}
+
+func TestLaunchAfterLibraryMove(t *testing.T) { // final review I4
+	w := installed(t)
+	oldModded := w.Game.ModdedDir
+	testenv.WriteFile(t, filepath.Join(oldModded, "BepInEx", "config", "keys.cfg"), "user")
+	lib2 := t.TempDir()
+	testenv.WriteFile(t, filepath.Join(lib2, "steamapps", "appmanifest_945360.acf"), `"AppState" { "buildid" "100" }`)
+	testenv.WriteFile(t, filepath.Join(lib2, "steamapps", "common", "Among Us", "Among Us.exe"), "game")
+	testenv.WriteFile(t, filepath.Join(w.Root, "steamapps", "libraryfolders.vdf"),
+		`"libraryfolders" { "0" { "path" "`+strings.ReplaceAll(lib2, `\`, `\\`)+`" "apps" { "945360" "1" } } }`)
+	if err := run(w, "1.0.0"); err != nil {
+		t.Fatal(err)
+	}
+	newModded := filepath.Join(lib2, "steamapps", "common", "Among Us Modded")
+	if len(w.Fake.Started) != 1 || w.Fake.Started[0].Exe != filepath.Join(newModded, "Among Us.exe") {
+		t.Fatalf("started %+v", w.Fake.Started)
+	}
+	if b, _ := os.ReadFile(filepath.Join(newModded, "BepInEx", "config", "keys.cfg")); string(b) != "user" {
+		t.Fatal("config not carried over")
+	}
+	if testenv.Exists(oldModded) {
+		t.Fatal("old folder left behind")
+	}
+}

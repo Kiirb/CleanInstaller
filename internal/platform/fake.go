@@ -21,6 +21,10 @@ type Fake struct {
 	ShutdownErr  error
 	StartProcErr error
 
+	LockHeld           bool // true while someone holds the single-instance lock
+	CheckLockOnStart   bool // record StartedWhileLocked if StartProcess runs with the lock held
+	StartedWhileLocked bool
+
 	OpenedURLs    []string
 	OpenedFolders []string
 	Started       []Started
@@ -99,10 +103,28 @@ func (f *Fake) StartProcess(exe, dir string, args ...string) (*os.Process, error
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	f.Started = append(f.Started, Started{exe, dir, args})
+	if f.CheckLockOnStart && f.LockHeld {
+		f.StartedWhileLocked = true
+	}
 	if f.StartProcErr != nil {
 		return nil, f.StartProcErr
 	}
 	return nil, nil
+}
+
+// Lock simulates the single-instance mutex.
+func (f *Fake) Lock() (func(), bool) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if f.LockHeld {
+		return func() {}, false
+	}
+	f.LockHeld = true
+	return func() {
+		f.mu.Lock()
+		defer f.mu.Unlock()
+		f.LockHeld = false
+	}, true
 }
 
 var _ Platform = (*Fake)(nil)

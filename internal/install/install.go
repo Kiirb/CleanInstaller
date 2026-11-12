@@ -70,6 +70,13 @@ func Run(ctx context.Context, d Deps) (Outcome, error) {
 		return relaunch(d)
 	}
 
+	// One CleanInstaller at a time (installer and launcher share the lock).
+	release, locked := d.P.Lock()
+	if !locked {
+		return 0, apperr.New("CleanInstaller oder Among Us Modded läuft bereits. Schließe es und versuche es erneut.", errors.New("instance lock held"))
+	}
+	defer release()
+
 	m, live, err := LoadManifest(ctx, d, dataDir)
 	if err != nil {
 		return 0, err
@@ -132,16 +139,23 @@ func Run(ctx context.Context, d Deps) (Outcome, error) {
 			"• Kopiert CleanInstaller nach %LOCALAPPDATA%\\CleanInstaller"
 		if findings.Any() {
 			body += "\n• Ersetzt deine alte CInstaller-Installation"
+		} else if exists(g.ModdedDir) {
+			body += "\n• Ersetzt den vorhandenen Ordner „Among Us Modded“ (deine BepInEx-Einstellungen bleiben erhalten)"
 		}
 		if !d.UI.Confirm(title, body, "Installieren", "Abbrechen") {
 			return Cancelled, nil
 		}
 	}
 
-	// Sync (always a full rebuild here: fresh install, repair or migration).
-	if err := syncer.DeleteState(dataDir); err != nil {
-		return 0, apperr.New("Der alte Installationsstand konnte nicht zurückgesetzt werden.", err)
+	// Ask about Steam before the long sync, not minutes later.
+	ok, err = closeSteam(ctx, d, root)
+	if err != nil || !ok {
+		return Cancelled, err
 	}
+
+	// Sync: always a full rebuild (fresh install, repair or migration). The
+	// state file is only replaced after success, so a failed repair leaves
+	// the working install usable.
 	display := ui.Display{}
 	if f := m.Fun(); live {
 		display = ui.Display{JokeText: f.JokeText, ChaosBar: f.ChaosBar, JokeLines: f.JokeLines}
@@ -157,10 +171,6 @@ func Run(ctx context.Context, d Deps) (Outcome, error) {
 		}
 	}
 
-	ok, err = closeSteam(ctx, d, root)
-	if err != nil || !ok {
-		return Cancelled, err
-	}
 	if err := migrate.CleanSteam(root, findings, d.Log); err != nil {
 		d.Log.Warn("clean old shortcuts", "err", err)
 	}
@@ -277,6 +287,9 @@ func addShortcut(d Deps, root string, u steam.User, exe, startDir string) error 
 }
 
 func uninstall(ctx context.Context, d Deps, root string, users []steam.User, g *steam.Game, dataDir string, findings migrate.Findings) (Outcome, error) {
+	if d.P.ProcessRunning(filepath.Join(g.ModdedDir, steam.GameExe)) {
+		return 0, apperr.New("Among Us Modded läuft noch. Schließe das Spiel und versuche es erneut.", errors.New("game running"))
+	}
 	ok, err := closeSteam(ctx, d, root)
 	if err != nil || !ok {
 		return Cancelled, err
@@ -285,13 +298,12 @@ func uninstall(ctx context.Context, d Deps, root string, users []steam.User, g *
 	id := steam.ShortcutAppID(`"`+exe+`"`, steam.ShortcutName)
 	for _, u := range users {
 		cfg := steam.UserConfigDir(root, u)
-		sc, err := steam.LoadShortcuts(cfg)
-		if err != nil {
-			return 0, apperr.New("Der Steam-Eintrag konnte nicht entfernt werden.", err)
-		}
-		if steam.RemoveShortcuts(sc, steam.OurShortcutMatcher(exe, dataDir)) > 0 {
+		// One broken account must not stop the uninstall for the others.
+		if sc, err := steam.LoadShortcuts(cfg); err != nil {
+			d.Log.Warn("read shortcuts", "user", u.ID3, "err", err)
+		} else if steam.RemoveShortcuts(sc, steam.OurShortcutMatcher(exe, dataDir)) > 0 {
 			if err := steam.SaveShortcuts(cfg, sc); err != nil {
-				return 0, apperr.New("Der Steam-Eintrag konnte nicht entfernt werden.", err)
+				d.Log.Warn("save shortcuts", "user", u.ID3, "err", err)
 			}
 		}
 		if err := steam.RemoveArtwork(cfg, fmt.Sprint(id)); err != nil {
@@ -372,4 +384,9 @@ func copyFile(src, dst string) error {
 		return err
 	}
 	return os.Rename(tmp, dst)
+}
+
+func exists(p string) bool {
+	_, err := os.Stat(p)
+	return err == nil
 }

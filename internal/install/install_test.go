@@ -4,6 +4,7 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -261,5 +262,90 @@ func TestInstallChooseCancel(t *testing.T) {
 	out, err := run(t, w)
 	if err != nil || out != Cancelled {
 		t.Fatalf("%v %v", out, err)
+	}
+}
+
+func TestRepairLockedKeepsInstallUsable(t *testing.T) { // final review I1
+	if runtime.GOOS != "windows" {
+		t.Skip("windows file locking")
+	}
+	w := testenv.NewWorld(t, 1, true)
+	w.UI.Confirms = []bool{true}
+	if _, err := Run(context.Background(), w.Deps()); err != nil {
+		t.Fatal(err)
+	}
+	f, err := os.Open(filepath.Join(w.Game.ModdedDir, "Among Us.exe"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	w.UI = &testenv.FakeUI{Chooses: []int{0}} // Reparieren
+	_, err = Run(context.Background(), w.Deps())
+	f.Close()
+	if err == nil || !strings.Contains(apperr.Message(err), "benutzt") {
+		t.Fatalf("%v", err)
+	}
+	if !testenv.Exists(filepath.Join(w.Data, "state.json")) {
+		t.Fatal("state deleted by failed repair: launcher would say 'nicht installiert'")
+	}
+}
+
+func TestInstallDisclosesExistingFolder(t *testing.T) { // final review I5
+	w := testenv.NewWorld(t, 1, true)
+	testenv.WriteFile(t, filepath.Join(w.Game.ModdedDir, "Among Us.exe"), "someone else's copy")
+	w.UI.Confirms = []bool{false}
+	if _, err := Run(context.Background(), w.Deps()); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(w.UI.Calls[0], "Ersetzt den vorhandenen Ordner") {
+		t.Fatalf("not disclosed: %s", w.UI.Calls[0])
+	}
+}
+
+func TestUninstallWhileGameRunning(t *testing.T) { // final review I6
+	w := testenv.NewWorld(t, 1, true)
+	w.UI.Confirms = []bool{true}
+	if _, err := Run(context.Background(), w.Deps()); err != nil {
+		t.Fatal(err)
+	}
+	w.Fake.Running = map[string]bool{strings.ToLower(filepath.Join(w.Game.ModdedDir, "Among Us.exe")): true}
+	w.UI = &testenv.FakeUI{Chooses: []int{1}}
+	_, err := Run(context.Background(), w.Deps())
+	if err == nil || !strings.Contains(apperr.Message(err), "Schließe") {
+		t.Fatalf("%v", err)
+	}
+	if len(w.ShortcutNames(w.Users[0])) != 1 || !testenv.Exists(w.Game.ModdedDir) {
+		t.Fatal("uninstall went ahead while game runs")
+	}
+}
+
+func TestInstallAsksSteamCloseBeforeSync(t *testing.T) { // final review I8
+	w := testenv.NewWorld(t, 1, true)
+	w.Fake.SteamUp = true
+	w.UI.Confirms = []bool{true, false}
+	if out, err := Run(context.Background(), w.Deps()); err != nil || out != Cancelled {
+		t.Fatalf("%v %v", out, err)
+	}
+	if testenv.Exists(w.Game.ModdedDir) || testenv.Exists(filepath.Join(w.Data, "state.json")) {
+		t.Fatal("synced before asking about Steam")
+	}
+}
+
+func TestInstallSecondInstanceRefused(t *testing.T) { // final review I2
+	w := testenv.NewWorld(t, 1, true)
+	w.Fake.LockHeld = true
+	_, err := Run(context.Background(), w.Deps())
+	if err == nil || !strings.Contains(apperr.Message(err), "läuft bereits") {
+		t.Fatalf("%v", err)
+	}
+}
+
+func TestInstallReleasesLock(t *testing.T) {
+	w := testenv.NewWorld(t, 1, true)
+	w.UI.Confirms = []bool{true}
+	if _, err := Run(context.Background(), w.Deps()); err != nil {
+		t.Fatal(err)
+	}
+	if w.Fake.LockHeld {
+		t.Fatal("lock not released")
 	}
 }

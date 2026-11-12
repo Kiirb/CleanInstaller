@@ -152,4 +152,18 @@ func (Windows) StartProcess(exe, dir string, args ...string) (*os.Process, error
 	return cmd.Process, nil
 }
 
+// Lock takes a per-session named mutex. Windows releases it automatically if
+// the process dies, so a crash never leaves a stale lock.
+func (Windows) Lock() (func(), bool) {
+	name, _ := windows.UTF16PtrFromString(`Local\CleanInstaller`)
+	h, err := windows.CreateMutex(nil, false, name)
+	if err != nil {
+		if h != 0 {
+			windows.CloseHandle(h)
+		}
+		return func() {}, false // ERROR_ALREADY_EXISTS: another instance runs
+	}
+	return func() { windows.CloseHandle(h) }, true
+}
+
 var _ Platform = Windows{}

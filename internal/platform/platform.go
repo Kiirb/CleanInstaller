@@ -18,6 +18,9 @@ type Platform interface {
 	OpenURL(url string) error
 	OpenFolder(path string) error
 	StartProcess(exe, dir string, args ...string) (*os.Process, error)
+	// Lock takes the single-instance lock shared by installer and launcher.
+	// ok is false if another CleanInstaller process holds it.
+	Lock() (release func(), ok bool)
 }
 
 // AppName is the folder name under the per-user app data directory.
