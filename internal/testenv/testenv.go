@@ -1,4 +1,6 @@
-package install
+// Package testenv builds a fake PC (Steam, Among Us, manifest server) and a
+// scripted UI for flow tests. Only test code imports it.
+package testenv
 
 import (
 	"archive/zip"
@@ -16,6 +18,7 @@ import (
 
 	"github.com/Kiirb/CleanInstaller/assets"
 	"github.com/Kiirb/CleanInstaller/internal/applog"
+	"github.com/Kiirb/CleanInstaller/internal/install"
 	"github.com/Kiirb/CleanInstaller/internal/manifest"
 	"github.com/Kiirb/CleanInstaller/internal/platform"
 	"github.com/Kiirb/CleanInstaller/internal/progress"
@@ -89,7 +92,7 @@ func (f *FakeUI) Error(err error, logDir string) {
 
 func (f *FakeUI) Close() {}
 
-func (f *FakeUI) called(prefix string) bool {
+func (f *FakeUI) Called(prefix string) bool {
 	for _, c := range f.Calls {
 		if strings.HasPrefix(c, prefix) {
 			return true
@@ -98,12 +101,12 @@ func (f *FakeUI) called(prefix string) bool {
 	return false
 }
 
-func shaOf(b []byte) string {
+func SHA(b []byte) string {
 	s := sha256.Sum256(b)
 	return hex.EncodeToString(s[:])
 }
 
-func writeFile(t *testing.T, p, s string) {
+func WriteFile(t *testing.T, p, s string) {
 	t.Helper()
 	if err := os.MkdirAll(filepath.Dir(p), 0o755); err != nil {
 		t.Fatal(err)
@@ -113,7 +116,7 @@ func writeFile(t *testing.T, p, s string) {
 	}
 }
 
-func exists(p string) bool { _, err := os.Stat(p); return err == nil }
+func Exists(p string) bool { _, err := os.Stat(p); return err == nil }
 
 func vdfPath(p string) string { return strings.ReplaceAll(p, `\`, `\\`) }
 
@@ -135,16 +138,16 @@ type World struct {
 	Manifest *manifest.Manifest
 }
 
-func newWorld(t *testing.T, users int, withGame bool) *World {
+func NewWorld(t *testing.T, users int, withGame bool) *World {
 	t.Helper()
 	w := &World{T: t, Root: t.TempDir(), Lib: t.TempDir(), Data: filepath.Join(t.TempDir(), "CleanInstaller"), Temp: t.TempDir(), UI: &FakeUI{}, Files: map[string][]byte{}}
-	writeFile(t, filepath.Join(w.Root, "steam.exe"), "steam")
-	writeFile(t, filepath.Join(w.Root, "steamapps", "libraryfolders.vdf"), `"libraryfolders" { "0" { "path" "`+vdfPath(w.Root)+`" "apps" { } } "1" { "path" "`+vdfPath(w.Lib)+`" "apps" { "945360" "1" } } }`)
+	WriteFile(t, filepath.Join(w.Root, "steam.exe"), "steam")
+	WriteFile(t, filepath.Join(w.Root, "steamapps", "libraryfolders.vdf"), `"libraryfolders" { "0" { "path" "`+vdfPath(w.Root)+`" "apps" { } } "1" { "path" "`+vdfPath(w.Lib)+`" "apps" { "945360" "1" } } }`)
 	common := filepath.Join(w.Lib, "steamapps", "common")
 	w.Game = &steam.Game{LibraryDir: w.Lib, CommonDir: common, VanillaDir: filepath.Join(common, "Among Us"), ModdedDir: filepath.Join(common, "Among Us Modded"), BuildID: "100"}
 	if withGame {
-		writeFile(t, filepath.Join(w.Lib, "steamapps", "appmanifest_945360.acf"), `"AppState" { "appid" "945360" "buildid" "100" }`)
-		writeFile(t, filepath.Join(w.Game.VanillaDir, "Among Us.exe"), "game")
+		WriteFile(t, filepath.Join(w.Lib, "steamapps", "appmanifest_945360.acf"), `"AppState" { "appid" "945360" "buildid" "100" }`)
+		WriteFile(t, filepath.Join(w.Game.VanillaDir, "Among Us.exe"), "game")
 	}
 	login := `"users" {`
 	for i := 0; i < users; i++ {
@@ -158,12 +161,12 @@ func newWorld(t *testing.T, users int, withGame bool) *World {
 		login += ` "` + itoa64(u.ID64) + `" { "PersonaName" "` + u.PersonaName + `" "MostRecent" "` + mr + `" }`
 		_ = os.MkdirAll(steam.UserConfigDir(w.Root, u), 0o755)
 	}
-	writeFile(t, filepath.Join(w.Root, "config", "loginusers.vdf"), login+" }")
+	WriteFile(t, filepath.Join(w.Root, "config", "loginusers.vdf"), login+" }")
 
 	w.Self = filepath.Join(t.TempDir(), "Downloads", "CleanInstaller.exe")
-	writeFile(t, w.Self, "self-exe-v1")
+	WriteFile(t, w.Self, "self-exe-v1")
 
-	w.Files["/pack.zip"] = zipOf(t, map[string]string{"P/winhttp.dll": "doorstop", "P/BepInEx/plugins/MiraAPI.dll": "mira", "P/BepInEx/config/BepInEx.cfg": "pack-cfg"})
+	w.Files["/pack.zip"] = ZipOf(t, map[string]string{"P/winhttp.dll": "doorstop", "P/BepInEx/plugins/MiraAPI.dll": "mira", "P/BepInEx/config/BepInEx.cfg": "pack-cfg"})
 	w.Files["/Reactor.dll"] = []byte("reactor")
 	w.Server = httptest.NewTLSServer(http.HandlerFunc(func(rw http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == "/manifest.json" {
@@ -180,7 +183,7 @@ func newWorld(t *testing.T, users int, withGame bool) *World {
 	}))
 	t.Cleanup(w.Server.Close)
 	asset := func(p, file, id string) manifest.Asset {
-		return manifest.Asset{ID: id, FileName: file, Tag: "v1", URL: w.Server.URL + p, SHA256: shaOf(w.Files[p]), Size: int64(len(w.Files[p]))}
+		return manifest.Asset{ID: id, FileName: file, Tag: "v1", URL: w.Server.URL + p, SHA256: SHA(w.Files[p]), Size: int64(len(w.Files[p]))}
 	}
 	w.Manifest = &manifest.Manifest{Schema: 1, Modpack: asset("/pack.zip", "", ""), Plugins: []manifest.Asset{asset("/Reactor.dll", "Reactor.dll", "Reactor")}, Remove: []string{}}
 	w.Fake = &platform.Fake{Root: w.Root, Data: w.Data}
@@ -192,7 +195,7 @@ func itoa64(v uint64) string {
 	return string(b)
 }
 
-func zipOf(t *testing.T, entries map[string]string) []byte {
+func ZipOf(t *testing.T, entries map[string]string) []byte {
 	var buf bytes.Buffer
 	zw := zip.NewWriter(&buf)
 	for n, c := range entries {
@@ -206,18 +209,18 @@ func zipOf(t *testing.T, entries map[string]string) []byte {
 	return buf.Bytes()
 }
 
-func (w *World) setFun(jokeText bool) {
+func (w *World) SetFun(jokeText bool) {
 	w.Manifest.FunRaw = json.RawMessage(`{"jokeText":` + map[bool]string{true: "true", false: "false"}[jokeText] + `,"chaosBar":false,"jokeLines":["x","y"]}`)
 }
 
-func (w *World) deps() Deps {
-	return Deps{P: w.Fake, UI: w.UI, HTTP: w.Server.Client(), ManifestURL: w.Server.URL + "/manifest.json",
+func (w *World) Deps() install.Deps {
+	return install.Deps{P: w.Fake, UI: w.UI, HTTP: w.Server.Client(), ManifestURL: w.Server.URL + "/manifest.json",
 		SelfPath: w.Self, Log: applog.Discard(), TempDir: w.Temp, Art: assets.Steam}
 }
 
-func (w *World) installedExe() string { return filepath.Join(w.Data, "CleanInstaller.exe") }
+func (w *World) InstalledExe() string { return filepath.Join(w.Data, "CleanInstaller.exe") }
 
-func (w *World) shortcutNames(u steam.User) []string {
+func (w *World) ShortcutNames(u steam.User) []string {
 	root, err := steam.LoadShortcuts(steam.UserConfigDir(w.Root, u))
 	if err != nil {
 		w.T.Fatal(err)
@@ -233,4 +236,9 @@ func (w *World) shortcutNames(u steam.User) []string {
 		out = append(out, str("AppName")+"|"+str("Exe")+"|"+str("LaunchOptions"))
 	}
 	return out
+}
+
+// Asset describes a file served by the world's server at path.
+func (w *World) Asset(path, file, id string) manifest.Asset {
+	return manifest.Asset{ID: id, FileName: file, Tag: "v1", URL: w.Server.URL + path, SHA256: SHA(w.Files[path]), Size: int64(len(w.Files[path]))}
 }

@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"fmt"
-	"log/slog"
 	"net"
 	"net/http"
 	"os"
@@ -85,9 +84,4 @@ func httpClient() *http.Client {
 		ResponseHeaderTimeout: 30 * time.Second,
 		IdleConnTimeout:       60 * time.Second,
 	}}
-}
-
-// runLaunch is replaced by the launcher flow in Task 15.
-var runLaunch = func(ctx context.Context, d install.Deps, log *slog.Logger) error {
-	return fmt.Errorf("launcher not implemented")
 }

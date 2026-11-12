@@ -58,11 +58,13 @@ type gioUI struct {
 	title string
 	open  func(path string) error
 
-	mu     sync.Mutex
-	w      *app.Window
-	cur    *screen
-	closed chan struct{}
-	once   sync.Once
+	mu      sync.Mutex
+	w       *app.Window
+	cur     *screen
+	closing bool // set by Close: the program closed the window, keep running
+	closed  chan struct{}
+	once    sync.Once
+	tick    sync.Once
 }
 
 // Run creates the UI, runs body on a separate goroutine and blocks the main
@@ -88,7 +90,7 @@ func (u *gioUI) window() *app.Window {
 		w.Option(app.Title(u.title), app.Size(unit.Dp(500), unit.Dp(300)), app.MinSize(unit.Dp(460), unit.Dp(260)))
 		u.w = w
 		go u.loop(w)
-		go u.ticker()
+		u.tick.Do(func() { go u.ticker() })
 	}
 	return u.w
 }
@@ -101,6 +103,15 @@ func (u *gioUI) loop(w *app.Window) {
 	for {
 		switch e := w.Event().(type) {
 		case app.DestroyEvent:
+			u.mu.Lock()
+			programClosed := u.closing
+			if programClosed {
+				u.w, u.cur, u.closing = nil, nil, false
+			}
+			u.mu.Unlock()
+			if programClosed {
+				return // e.g. the launcher hides its window while the game runs
+			}
 			u.once.Do(func() { close(u.closed) })
 			// The user closed the window: stop everything. The sync never
 			// leaves a half-built folder in place (see syncer), so exiting is safe.
@@ -197,6 +208,9 @@ func (u *gioUI) Error(err error, logDir string) {
 func (u *gioUI) Close() {
 	u.mu.Lock()
 	w := u.w
+	if w != nil {
+		u.closing = true
+	}
 	u.mu.Unlock()
 	if w != nil {
 		w.Perform(system.ActionClose)

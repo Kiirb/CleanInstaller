@@ -1,4 +1,4 @@
-package install
+package install_test
 
 import (
 	"context"
@@ -8,38 +8,40 @@ import (
 	"testing"
 
 	"github.com/Kiirb/CleanInstaller/internal/apperr"
+	. "github.com/Kiirb/CleanInstaller/internal/install"
 	"github.com/Kiirb/CleanInstaller/internal/migrate"
 	"github.com/Kiirb/CleanInstaller/internal/steam"
+	"github.com/Kiirb/CleanInstaller/internal/testenv"
 	"github.com/Kiirb/CleanInstaller/internal/vdf"
 )
 
-func run(t *testing.T, w *World) (Outcome, error) {
+func run(t *testing.T, w *testenv.World) (Outcome, error) {
 	t.Helper()
-	return Run(context.Background(), w.deps())
+	return Run(context.Background(), w.Deps())
 }
 
 func TestInstallFresh(t *testing.T) {
-	w := newWorld(t, 1, true)
+	w := testenv.NewWorld(t, 1, true)
 	w.UI.Confirms = []bool{true}
 	w.UI.Infos = []int{1}
 	out, err := run(t, w)
 	if err != nil || out != Installed {
 		t.Fatalf("%v %v calls=%v", out, err, w.UI.Calls)
 	}
-	b, _ := os.ReadFile(w.installedExe())
+	b, _ := os.ReadFile(w.InstalledExe())
 	if string(b) != "self-exe-v1" {
 		t.Fatal("exe not copied")
 	}
-	if !exists(filepath.Join(w.Data, "state.json")) || !exists(filepath.Join(w.Game.ModdedDir, "BepInEx", "plugins", "Reactor.dll")) {
+	if !testenv.Exists(filepath.Join(w.Data, "state.json")) || !testenv.Exists(filepath.Join(w.Game.ModdedDir, "BepInEx", "plugins", "Reactor.dll")) {
 		t.Fatal("not synced")
 	}
-	names := w.shortcutNames(w.Users[0])
-	want := `Among Us Modded|"` + w.installedExe() + `"|--launch`
+	names := w.ShortcutNames(w.Users[0])
+	want := `Among Us Modded|"` + w.InstalledExe() + `"|--launch`
 	if len(names) != 1 || names[0] != want {
 		t.Fatalf("shortcuts %v want %s", names, want)
 	}
-	id := steam.ShortcutAppID(`"`+w.installedExe()+`"`, steam.ShortcutName)
-	if !exists(steam.IconPath(steam.UserConfigDir(w.Root, w.Users[0]), id)) {
+	id := steam.ShortcutAppID(`"`+w.InstalledExe()+`"`, steam.ShortcutName)
+	if !testenv.Exists(steam.IconPath(steam.UserConfigDir(w.Root, w.Users[0]), id)) {
 		t.Fatal("artwork missing")
 	}
 	if !strings.Contains(w.UI.Calls[0], "Among Us Modded") || !strings.Contains(w.UI.Calls[0], "%LOCALAPPDATA%") {
@@ -48,7 +50,7 @@ func TestInstallFresh(t *testing.T) {
 }
 
 func TestInstallFinishStartsSteam(t *testing.T) {
-	w := newWorld(t, 1, true)
+	w := testenv.NewWorld(t, 1, true)
 	w.UI.Confirms = []bool{true}
 	w.UI.Infos = []int{0}
 	if _, err := run(t, w); err != nil {
@@ -60,7 +62,7 @@ func TestInstallFinishStartsSteam(t *testing.T) {
 }
 
 func TestInstallGameMissingStops(t *testing.T) {
-	w := newWorld(t, 1, false)
+	w := testenv.NewWorld(t, 1, false)
 	w.UI.Confirms = []bool{true}
 	out, err := run(t, w)
 	if err != nil || out != Cancelled {
@@ -69,13 +71,13 @@ func TestInstallGameMissingStops(t *testing.T) {
 	if len(w.Fake.OpenedURLs) != 1 || w.Fake.OpenedURLs[0] != "steam://install/945360" {
 		t.Fatalf("urls %v", w.Fake.OpenedURLs)
 	}
-	if exists(w.Game.ModdedDir) || exists(w.installedExe()) {
+	if testenv.Exists(w.Game.ModdedDir) || testenv.Exists(w.InstalledExe()) {
 		t.Fatal("continued after missing game")
 	}
 }
 
 func TestInstallSteamNotFound(t *testing.T) {
-	w := newWorld(t, 1, true)
+	w := testenv.NewWorld(t, 1, true)
 	w.Fake.Root = ""
 	_, err := run(t, w)
 	if err == nil || !strings.Contains(apperr.Message(err), "Steam wurde nicht gefunden") {
@@ -84,14 +86,14 @@ func TestInstallSteamNotFound(t *testing.T) {
 }
 
 func TestInstallSteamRunningCancel(t *testing.T) {
-	w := newWorld(t, 1, true)
+	w := testenv.NewWorld(t, 1, true)
 	w.Fake.SteamUp = true
 	w.UI.Confirms = []bool{true, false}
 	out, err := run(t, w)
 	if err != nil || out != Cancelled {
 		t.Fatalf("%v %v", out, err)
 	}
-	if exists(filepath.Join(steam.UserConfigDir(w.Root, w.Users[0]), "shortcuts.vdf")) {
+	if testenv.Exists(filepath.Join(steam.UserConfigDir(w.Root, w.Users[0]), "shortcuts.vdf")) {
 		t.Fatal("shortcuts touched")
 	}
 	if w.Fake.SteamShutdown != 0 {
@@ -100,7 +102,7 @@ func TestInstallSteamRunningCancel(t *testing.T) {
 }
 
 func TestInstallSteamRunningClosesAndRestarts(t *testing.T) {
-	w := newWorld(t, 1, true)
+	w := testenv.NewWorld(t, 1, true)
 	w.Fake.SteamUp = true
 	w.UI.Confirms = []bool{true, true}
 	w.UI.Infos = []int{0}
@@ -111,7 +113,7 @@ func TestInstallSteamRunningClosesAndRestarts(t *testing.T) {
 }
 
 func TestInstallMultipleUsersChoose(t *testing.T) {
-	w := newWorld(t, 2, true)
+	w := testenv.NewWorld(t, 2, true)
 	w.UI.Chooses = []int{1}
 	w.UI.Confirms = []bool{true}
 	if _, err := run(t, w); err != nil {
@@ -120,13 +122,13 @@ func TestInstallMultipleUsersChoose(t *testing.T) {
 	if got := w.UI.Options[0]; len(got) != 2 || got[0] != "Alice" || got[1] != "Bob" {
 		t.Fatalf("options %v", got)
 	}
-	if len(w.shortcutNames(w.Users[0])) != 0 || len(w.shortcutNames(w.Users[1])) != 1 {
+	if len(w.ShortcutNames(w.Users[0])) != 0 || len(w.ShortcutNames(w.Users[1])) != 1 {
 		t.Fatal("shortcut for wrong user")
 	}
 }
 
 func TestInstallMigratesOld(t *testing.T) {
-	w := newWorld(t, 2, true)
+	w := testenv.NewWorld(t, 2, true)
 	oldExe := `"` + filepath.Join(w.Game.ModdedDir, "CInstaller.exe") + `"`
 	cfgA := steam.UserConfigDir(w.Root, w.Users[0])
 	rootA, _ := steam.LoadShortcuts(cfgA)
@@ -137,11 +139,11 @@ func TestInstallMigratesOld(t *testing.T) {
 	if err := steam.SaveShortcuts(cfgA, rootA); err != nil {
 		t.Fatal(err)
 	}
-	writeFile(t, filepath.Join(cfgA, "grid", migrate.OldArtPrefix+"p.png"), "old-art")
-	writeFile(t, filepath.Join(w.Game.ModdedDir, migrate.OldConfig), "{}")
-	writeFile(t, filepath.Join(w.Game.ModdedDir, "CInstaller.exe"), "old")
-	writeFile(t, filepath.Join(w.Game.ModdedDir, "Among Us.exe"), "game")
-	writeFile(t, filepath.Join(w.Game.ModdedDir, "BepInEx", "config", "x.cfg"), "user-setting")
+	testenv.WriteFile(t, filepath.Join(cfgA, "grid", migrate.OldArtPrefix+"p.png"), "old-art")
+	testenv.WriteFile(t, filepath.Join(w.Game.ModdedDir, migrate.OldConfig), "{}")
+	testenv.WriteFile(t, filepath.Join(w.Game.ModdedDir, "CInstaller.exe"), "old")
+	testenv.WriteFile(t, filepath.Join(w.Game.ModdedDir, "Among Us.exe"), "game")
+	testenv.WriteFile(t, filepath.Join(w.Game.ModdedDir, "BepInEx", "config", "x.cfg"), "user-setting")
 
 	w.UI.Chooses = []int{1} // install for Bob
 	w.UI.Confirms = []bool{true}
@@ -152,42 +154,42 @@ func TestInstallMigratesOld(t *testing.T) {
 	if !strings.Contains(w.UI.Calls[1], "Ersetzt deine alte CInstaller-Installation") {
 		t.Fatalf("migration not disclosed: %v", w.UI.Calls)
 	}
-	if names := w.shortcutNames(w.Users[0]); len(names) != 1 || !strings.HasPrefix(names[0], "Other|") {
+	if names := w.ShortcutNames(w.Users[0]); len(names) != 1 || !strings.HasPrefix(names[0], "Other|") {
 		t.Fatalf("user A shortcuts %v", names)
 	}
-	if exists(filepath.Join(cfgA, "grid", migrate.OldArtPrefix+"p.png")) {
+	if testenv.Exists(filepath.Join(cfgA, "grid", migrate.OldArtPrefix+"p.png")) {
 		t.Fatal("old art kept")
 	}
 	b, _ := os.ReadFile(filepath.Join(w.Game.ModdedDir, "BepInEx", "config", "x.cfg"))
 	if string(b) != "user-setting" {
 		t.Fatal("user config lost")
 	}
-	if exists(filepath.Join(w.Game.ModdedDir, "CInstaller.exe")) || exists(filepath.Join(w.Game.ModdedDir, migrate.OldConfig)) {
+	if testenv.Exists(filepath.Join(w.Game.ModdedDir, "CInstaller.exe")) || testenv.Exists(filepath.Join(w.Game.ModdedDir, migrate.OldConfig)) {
 		t.Fatal("old folder not rebuilt")
 	}
-	if len(w.shortcutNames(w.Users[1])) != 1 {
+	if len(w.ShortcutNames(w.Users[1])) != 1 {
 		t.Fatal("new shortcut missing")
 	}
 }
 
 func TestInstallRelaunchFromDataDir(t *testing.T) {
-	w := newWorld(t, 1, true)
-	w.Self = w.installedExe()
-	writeFile(t, w.Self, "installed-exe")
+	w := testenv.NewWorld(t, 1, true)
+	w.Self = w.InstalledExe()
+	testenv.WriteFile(t, w.Self, "installed-exe")
 	out, err := run(t, w)
 	if err != nil || out != Relaunched {
 		t.Fatalf("%v %v", out, err)
 	}
 	tmp := filepath.Join(w.Temp, "CleanInstaller-setup.exe")
-	if len(w.Fake.Started) != 1 || w.Fake.Started[0].Exe != tmp || len(w.Fake.Started[0].Args) != 0 || !exists(tmp) {
+	if len(w.Fake.Started) != 1 || w.Fake.Started[0].Exe != tmp || len(w.Fake.Started[0].Args) != 0 || !testenv.Exists(tmp) {
 		t.Fatalf("started %+v", w.Fake.Started)
 	}
 }
 
 func TestInstallRelaunchFromOldModdedFolder(t *testing.T) {
-	w := newWorld(t, 1, true)
+	w := testenv.NewWorld(t, 1, true)
 	w.Self = filepath.Join(w.Game.ModdedDir, "CInstaller.exe")
-	writeFile(t, w.Self, "old-location")
+	testenv.WriteFile(t, w.Self, "old-location")
 	out, err := run(t, w)
 	if err != nil || out != Relaunched {
 		t.Fatalf("%v %v", out, err)
@@ -195,8 +197,8 @@ func TestInstallRelaunchFromOldModdedFolder(t *testing.T) {
 }
 
 func TestInstallJokeOnlyWhenLive(t *testing.T) {
-	w := newWorld(t, 1, true)
-	w.setFun(true)
+	w := testenv.NewWorld(t, 1, true)
+	w.SetFun(true)
 	w.UI.Confirms = []bool{true}
 	if _, err := run(t, w); err != nil {
 		t.Fatal(err)
@@ -206,7 +208,7 @@ func TestInstallJokeOnlyWhenLive(t *testing.T) {
 	}
 	// Second run: server down, manifest from cache -> no joke mode.
 	w.Server.Close()
-	w.UI = &FakeUI{Chooses: []int{0}} // Reparieren
+	w.UI = &testenv.FakeUI{Chooses: []int{0}} // Reparieren
 	if _, err := run(t, w); err != nil {
 		t.Fatal(err)
 	}
@@ -216,7 +218,7 @@ func TestInstallJokeOnlyWhenLive(t *testing.T) {
 }
 
 func TestInstallOffline(t *testing.T) {
-	w := newWorld(t, 1, true)
+	w := testenv.NewWorld(t, 1, true)
 	w.Server.Close()
 	_, err := run(t, w)
 	if err == nil || !strings.HasPrefix(apperr.Message(err), "Keine Internetverbindung") {
@@ -225,37 +227,37 @@ func TestInstallOffline(t *testing.T) {
 }
 
 func TestUninstall(t *testing.T) {
-	w := newWorld(t, 2, true)
+	w := testenv.NewWorld(t, 2, true)
 	w.UI.Chooses = []int{0}
 	w.UI.Confirms = []bool{true}
 	if _, err := run(t, w); err != nil {
 		t.Fatal(err)
 	}
-	w.UI = &FakeUI{Chooses: []int{1}} // Deinstallieren
+	w.UI = &testenv.FakeUI{Chooses: []int{1}} // Deinstallieren
 	out, err := run(t, w)
 	if err != nil || out != Uninstalled {
 		t.Fatalf("%v %v", out, err)
 	}
 	for _, u := range w.Users {
-		if n := w.shortcutNames(u); len(n) != 0 {
+		if n := w.ShortcutNames(u); len(n) != 0 {
 			t.Fatalf("shortcuts left %v", n)
 		}
 	}
-	if exists(w.Game.ModdedDir) || exists(w.installedExe()) || exists(filepath.Join(w.Data, "state.json")) {
+	if testenv.Exists(w.Game.ModdedDir) || testenv.Exists(w.InstalledExe()) || testenv.Exists(filepath.Join(w.Data, "state.json")) {
 		t.Fatal("files left")
 	}
-	if !exists(filepath.Join(w.Game.VanillaDir, "Among Us.exe")) {
+	if !testenv.Exists(filepath.Join(w.Game.VanillaDir, "Among Us.exe")) {
 		t.Fatal("vanilla touched")
 	}
 }
 
 func TestInstallChooseCancel(t *testing.T) {
-	w := newWorld(t, 1, true)
+	w := testenv.NewWorld(t, 1, true)
 	w.UI.Confirms = []bool{true}
 	if _, err := run(t, w); err != nil {
 		t.Fatal(err)
 	}
-	w.UI = &FakeUI{Chooses: []int{2}} // Abbrechen
+	w.UI = &testenv.FakeUI{Chooses: []int{2}} // Abbrechen
 	out, err := run(t, w)
 	if err != nil || out != Cancelled {
 		t.Fatalf("%v %v", out, err)

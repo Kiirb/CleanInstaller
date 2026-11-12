@@ -4,6 +4,7 @@ go 1.27.4
 
 require (
 	gioui.org v0.10.3
+	golang.org/x/mod v0.43.0
 	golang.org/x/sys v0.50.0
 )
 

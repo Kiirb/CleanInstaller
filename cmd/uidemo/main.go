@@ -45,6 +45,15 @@ func main() {
 		if mode == "all" || mode == "chaos" {
 			run("Among Us Modded wird installiert", ui.Display{JokeText: true, ChaosBar: true, JokeLines: lines})
 		}
+		if mode == "reopen" {
+			t := progress.NewTracker()
+			t.Plan(1)
+			u.Progress("Erstes Fenster", t, ui.Display{})
+			time.Sleep(time.Second)
+			u.Close()
+			time.Sleep(2 * time.Second)
+			u.Info("Zweites Fenster", "Prozess lebt noch nach Close().", "OK")
+		}
 		if mode == "all" || mode == "dialogs" {
 			u.Confirm("CleanInstaller", "Das passiert jetzt:\n• Erstellt den Ordner „Among Us Modded“\n• Fügt in Steam den Eintrag hinzu", "Installieren", "Abbrechen")
 			u.Choose("Steam-Konto wählen", "Für welches Steam-Konto soll der Eintrag angelegt werden?", []string{"Alice", "Bob"})
