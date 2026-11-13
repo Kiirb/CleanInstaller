@@ -1,6 +1,7 @@
 package steam
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"hash/crc32"
@@ -176,6 +177,47 @@ func WriteArtwork(userConfigDir string, appID uint32, art fs.FS) error {
 		}
 	}
 	return nil
+}
+
+// SyncArtwork rewrites only the artwork files that are missing or differ
+// from art and returns how many it wrote. It never touches shortcuts.vdf, so
+// it is safe while Steam is running.
+func SyncArtwork(userConfigDir string, appID uint32, art fs.FS) (int, error) {
+	grid := filepath.Join(userConfigDir, "grid")
+	if err := os.MkdirAll(grid, 0o755); err != nil {
+		return 0, err
+	}
+	written := 0
+	for _, a := range artFiles {
+		want, err := fs.ReadFile(art, a.src)
+		if err != nil {
+			return written, err
+		}
+		path := filepath.Join(grid, itoa(appID)+a.suffix)
+		if have, err := os.ReadFile(path); err == nil && bytes.Equal(have, want) {
+			continue
+		}
+		if err := os.WriteFile(path, want, 0o644); err != nil {
+			return written, err
+		}
+		written++
+	}
+	return written, nil
+}
+
+// OurShortcutAppIDs returns the appids of our entries in a shortcuts root.
+func OurShortcutAppIDs(root *vdf.BNode, exePath, startDir string) []uint32 {
+	match := OurShortcutMatcher(exePath, startDir)
+	var ids []uint32
+	for _, e := range shortcutsNode(root).Children {
+		if e.Type != vdf.TypeMap || !match(e) {
+			continue
+		}
+		if id := e.Child("appid"); id != nil && id.Type == vdf.TypeInt32 {
+			ids = append(ids, uint32(id.Int))
+		}
+	}
+	return ids
 }
 
 // IconPath is where WriteArtwork puts the icon for appID.

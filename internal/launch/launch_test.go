@@ -10,6 +10,7 @@ import (
 	"github.com/Kiirb/CleanInstaller/internal/apperr"
 	"github.com/Kiirb/CleanInstaller/internal/install"
 	"github.com/Kiirb/CleanInstaller/internal/launch"
+	"github.com/Kiirb/CleanInstaller/internal/steam"
 	"github.com/Kiirb/CleanInstaller/internal/testenv"
 )
 
@@ -185,5 +186,35 @@ func TestLaunchAfterLibraryMove(t *testing.T) { // final review I4
 	}
 	if testenv.Exists(oldModded) {
 		t.Fatal("old folder left behind")
+	}
+}
+
+func TestLaunchRefreshesArtwork(t *testing.T) {
+	w := testenv.NewWorld(t, 2, true)
+	w.UI.Chooses = []int{0} // install for the first account only
+	w.UI.Confirms = []bool{true}
+	if _, err := install.Run(context.Background(), w.Deps()); err != nil {
+		t.Fatal(err)
+	}
+	w.UI = &testenv.FakeUI{}
+	w.Self = w.InstalledExe()
+
+	cfg := steam.UserConfigDir(w.Root, w.Users[0])
+	id := steam.ShortcutAppID(`"`+w.InstalledExe()+`"`, steam.ShortcutName)
+	icon := steam.IconPath(cfg, id)
+	want, _ := os.ReadFile(icon)
+	testenv.WriteFile(t, icon, "image from an older release")
+
+	if err := run(w, "1.0.0"); err != nil {
+		t.Fatal(err)
+	}
+	if got, _ := os.ReadFile(icon); string(got) != string(want) {
+		t.Fatal("artwork not refreshed by the launcher")
+	}
+	if testenv.Exists(filepath.Join(steam.UserConfigDir(w.Root, w.Users[1]), "grid")) {
+		t.Fatal("artwork written for an account without our shortcut")
+	}
+	if len(w.Fake.Started) != 1 {
+		t.Fatal("game not started")
 	}
 }

@@ -156,3 +156,39 @@ func TestRemoveArtwork(t *testing.T) {
 		t.Fatalf("missing dir: %v", err)
 	}
 }
+
+func TestSyncArtworkRewritesOnlyChanged(t *testing.T) {
+	cfg := t.TempDir()
+	if err := WriteArtwork(cfg, 7, assets.Steam); err != nil {
+		t.Fatal(err)
+	}
+	icon := IconPath(cfg, 7)
+	want, _ := os.ReadFile(icon)
+	_ = os.WriteFile(icon, []byte("old image"), 0o644)
+	_ = os.Remove(filepath.Join(cfg, "grid", "7_hero.png"))
+
+	changed, err := SyncArtwork(cfg, 7, assets.Steam)
+	if err != nil || changed != 2 {
+		t.Fatalf("changed=%d err=%v", changed, err)
+	}
+	if got, _ := os.ReadFile(icon); !bytes.Equal(got, want) {
+		t.Fatal("icon not refreshed")
+	}
+	if _, err := os.Stat(filepath.Join(cfg, "grid", "7_hero.png")); err != nil {
+		t.Fatal("missing hero not restored")
+	}
+	if changed, err := SyncArtwork(cfg, 7, assets.Steam); err != nil || changed != 0 {
+		t.Fatalf("second run changed=%d err=%v", changed, err)
+	}
+}
+
+func TestOurShortcutAppIDs(t *testing.T) {
+	cfg := t.TempDir()
+	root, _ := LoadShortcuts(cfg)
+	root.Child("shortcuts").Children = append(root.Child("shortcuts").Children, entry("Other", `"o.exe"`, `"D:\"`))
+	id := AddShortcut(root, Shortcut{Exe: `C:\d\CleanInstaller.exe`, StartDir: `C:\d`, LaunchOptions: "--launch"})
+	ids := OurShortcutAppIDs(root, `C:\d\CleanInstaller.exe`, `C:\d`)
+	if len(ids) != 1 || ids[0] != id {
+		t.Fatalf("ids %v want %d", ids, id)
+	}
+}

@@ -64,6 +64,16 @@ Push a tag `vX.Y.Z`. The **Release** workflow builds `CleanInstaller.exe` and pu
 
 The manifest workflow fails on the `launcher` entry until the first release exists. That's expected.
 
+### Steam artwork
+
+The library images live in `assets/steam/` (`grid.png`, `hero.png`, `logo.png`, `icon.png`, `logo.json`) and are built into the exe.
+
+To change them:
+1. Replace the files.
+2. Publish a new release.
+
+Each launcher updates itself and then rewrites the images on the next Play, for every Steam account that has the shortcut. Steam caches images, so friends may see the new ones only after restarting Steam.
+
 ### Antivirus false positives
 
 If a release gets flagged, submit it at <https://www.microsoft.com/wdsi/filesubmission> (choose "Incorrectly detected as malware/malicious"). Don't add packers (UPX) or strip flags to the build.

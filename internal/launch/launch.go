@@ -72,6 +72,7 @@ func Run(ctx context.Context, d Deps, currentVersion string) error {
 	if _, err := os.Stat(gameExe); err != nil {
 		return notInstalled(err)
 	}
+	refreshArtwork(d, dataDir)
 	d.UI.Close()
 	proc, err := d.P.StartProcess(gameExe, st.ModdedDir)
 	if err != nil {
@@ -87,6 +88,42 @@ func Run(ctx context.Context, d Deps, currentVersion string) error {
 }
 
 var errRestarted = errors.New("restarted after self-update")
+
+// refreshArtwork rewrites the Steam library images from the ones built into
+// this exe, for every account that has our shortcut, so new images reach
+// friends with the next release. Best effort: failures are only logged.
+func refreshArtwork(d Deps, dataDir string) {
+	if d.Art == nil {
+		return
+	}
+	root, err := d.P.SteamRoot()
+	if err != nil {
+		d.Log.Warn("artwork: steam not found", "err", err)
+		return
+	}
+	users, err := steam.Users(root)
+	if err != nil {
+		d.Log.Warn("artwork: list users", "err", err)
+		return
+	}
+	exe := filepath.Join(dataDir, install.ExeName)
+	for _, u := range users {
+		cfg := steam.UserConfigDir(root, u)
+		sc, err := steam.LoadShortcuts(cfg)
+		if err != nil {
+			d.Log.Warn("artwork: read shortcuts", "user", u.ID3, "err", err)
+			continue
+		}
+		for _, id := range steam.OurShortcutAppIDs(sc, exe, dataDir) {
+			n, err := steam.SyncArtwork(cfg, id, d.Art)
+			if err != nil {
+				d.Log.Warn("artwork: write", "user", u.ID3, "err", err)
+			} else if n > 0 {
+				d.Log.Info("artwork refreshed", "user", u.ID3, "files", n)
+			}
+		}
+	}
+}
 
 // update fetches the manifest and brings everything up to date, returning the
 // state to launch from. Network problems are logged and skipped so the game
