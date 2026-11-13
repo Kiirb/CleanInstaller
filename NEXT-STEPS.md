@@ -1,15 +1,9 @@
 # Next steps (still to do)
 
-State on 2026-11-12: code is complete and pushed; no release exists yet.
+State on 2026-11-13: code is pushed, CI is green, release **v0.1.0** is published (https://github.com/Kiirb/CleanInstaller/releases/tag/v0.1.0) and the "Update manifest" workflow is green with the launcher entry filled in.
 
-1. **Check CI.** The first CI run on GitHub Actions (push of `main`) had not finished when work stopped. Check the Actions tab.
-2. **Publish the first release.** Tagging was not done:
-   ```
-   git tag -a v0.1.0 -m "CleanInstaller 0.1.0"
-   git push origin v0.1.0
-   ```
-   The Release workflow then builds `CleanInstaller.exe`.
-3. **Run the "Update manifest" workflow** once by hand (Actions tab → Update manifest → Run workflow). It fails on the `launcher` entry until step 2 is done; after that it should be green.
+Done: ~~check CI~~, ~~publish v0.1.0~~, ~~run the manifest workflow~~.
+
 4. **Test on a real PC** with Steam and Among Us, using [`docs/manual-test-checklist.md`](docs/manual-test-checklist.md).
 5. **README:** add the SmartScreen screenshot (placeholder in the Installation section).
 6. **Apply to SignPath Foundation** for free code signing once a working release exists. Then enable the commented signing step in `.github/workflows/release.yml` and the signing line in the README.
