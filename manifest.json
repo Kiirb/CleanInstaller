@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "generatedAt": "2026-11-13T10:58:17.11631397Z",
+  "generatedAt": "2026-11-14T19:38:44.202853512Z",
   "launcher": {
     "version": "0.1.0",
     "tag": "v0.1.0",
@@ -74,12 +74,12 @@
       "size": 21070336
     },
     {
-      "tag": "v4.1.12",
+      "tag": "v4.1.13",
       "fileName": "PerfectComms.dll",
       "id": "Perfect-Comms",
-      "url": "https://github.com/artriy/Perfect-Comms/releases/download/v4.1.12/PerfectComms.dll",
-      "sha256": "4aa34cb8625ea7f2c038e17cbc3a66a1bf4c216358ed8dd561ab43a23a9aae43",
-      "size": 52440576
+      "url": "https://github.com/artriy/Perfect-Comms/releases/download/v4.1.13/PerfectComms.dll",
+      "sha256": "59d84e1db04315089a1dbd8b291c15e227343f3b780a38f8a859a659a7e3a0df",
+      "size": 52457984
     }
   ],
   "remove": [],
