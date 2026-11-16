@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "generatedAt": "2026-11-16T10:26:55.477881207Z",
+  "generatedAt": "2026-11-16T21:28:35.188491138Z",
   "launcher": {
     "version": "0.1.0",
     "tag": "v0.1.0",
@@ -11,10 +11,10 @@
   },
   "modpack": {
     "tag": "1.7.9-beta2",
-    "fileName": "TouMira-x64-Steam-Epic-MsStore.zip",
-    "url": "https://github.com/AU-Avengers/TOU-Mira/releases/download/1.7.9-beta2/TouMira-x64-Steam-Epic-MsStore.zip",
-    "sha256": "8cf8cf3c0d4be269ef3444616c92f72bbdd29737638347a180ec585a9c50dd46",
-    "size": 83323660
+    "fileName": "TouMira.v1.7.9-beta2-x64-Steam-Epic-MsStore.zip",
+    "url": "https://github.com/AU-Avengers/TOU-Mira/releases/download/1.7.9-beta2/TouMira.v1.7.9-beta2-x64-Steam-Epic-MsStore.zip",
+    "sha256": "ac0b2a626b75d7650b13746e0065f57a01f26468630d8b6734603a1b9e9be67f",
+    "size": 84696384
   },
   "plugins": [
     {
