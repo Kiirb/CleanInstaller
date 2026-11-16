@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "generatedAt": "2026-11-14T19:38:44.202853512Z",
+  "generatedAt": "2026-11-16T10:26:55.477881207Z",
   "launcher": {
     "version": "0.1.0",
     "tag": "v0.1.0",
@@ -10,20 +10,20 @@
     "size": 20367360
   },
   "modpack": {
-    "tag": "1.7.9-beta1",
-    "fileName": "TouMira.v1.7.9-beta1-x64-Steam-Epic-MsStore.zip",
-    "url": "https://github.com/AU-Avengers/TOU-Mira/releases/download/1.7.9-beta1/TouMira.v1.7.9-beta1-x64-Steam-Epic-MsStore.zip",
-    "sha256": "b2e2163f7d0f41fb3cdf50352119925c42c80bc55a804507cf9e923aeb150afd",
-    "size": 97657502
+    "tag": "1.7.9-beta2",
+    "fileName": "TouMira-x64-Steam-Epic-MsStore.zip",
+    "url": "https://github.com/AU-Avengers/TOU-Mira/releases/download/1.7.9-beta2/TouMira-x64-Steam-Epic-MsStore.zip",
+    "sha256": "8cf8cf3c0d4be269ef3444616c92f72bbdd29737638347a180ec585a9c50dd46",
+    "size": 83323660
   },
   "plugins": [
     {
-      "tag": "1.7.9-beta1",
+      "tag": "1.7.9-beta2",
       "fileName": "TownOfUsMira.dll",
       "id": "TownOfUsMira",
-      "url": "https://github.com/AU-Avengers/TOU-Mira/releases/download/1.7.9-beta1/TownOfUsMira.dll",
-      "sha256": "87e1881010828ff81ddc0c054857da5ebddeb2ce1472e60d3e6891c5b0b8bff5",
-      "size": 41605120
+      "url": "https://github.com/AU-Avengers/TOU-Mira/releases/download/1.7.9-beta2/TownOfUsMira.dll",
+      "sha256": "a26b74bc3d64dcbc8355e79bed4d90b39b106496fc0eba10d5e2460b44cd3708",
+      "size": 27132928
     },
     {
       "tag": "2.5.1",
